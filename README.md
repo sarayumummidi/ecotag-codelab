@@ -24,7 +24,7 @@ pip install easyocr opencv-python numpy pandas matplotlib seaborn tqdm codecarbo
 To see the CO2 emissions of a single tag image:
 
 ```bash
-cd full_demo/code
+cd code
 python demo.py --image ../cropped_tags/[IMG_NAME].JPG
 ```
 
