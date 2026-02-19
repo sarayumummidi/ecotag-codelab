@@ -5,13 +5,43 @@ import express from "express";
 import multer from "multer";
 import * as gpt from "../ai/gpt.js";
 import { estimateEmissions } from "../ai/emissions.js";
-import { estimateEconomics } from "../ai/economics.js";
 import fs from "node:fs";
 import path from "node:path";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
 let tagExtractor = gpt.extractTagFromImage;
+
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeParsedForEmissions(parsed) {
+  const normalized = isPlainObject(parsed) ? parsed : {};
+  const careInput = isPlainObject(normalized.care) ? normalized.care : {};
+
+  normalized.care = {
+    washing: careInput.washing ?? null,
+    drying: careInput.drying ?? null,
+    ironing: careInput.ironing ?? null,
+    dry_cleaning: careInput.dry_cleaning ?? null,
+  };
+
+  return normalized;
+}
+
+function withFallbackCareForEmissions(parsed) {
+  const care = isPlainObject(parsed?.care) ? parsed.care : {};
+  return {
+    ...parsed,
+    care: {
+      washing: care.washing || "machine_wash_cold",
+      drying: care.drying ?? null,
+      ironing: care.ironing ?? null,
+      dry_cleaning: care.dry_cleaning ?? null,
+    },
+  };
+}
 
 export function __setTagExtractorForTest(extractor) {
   tagExtractor = extractor;
@@ -57,8 +87,21 @@ router.post("/tag", upload.single("image"), async (req, res) => {
         },
       });
     }
+    parsed = normalizeParsedForEmissions(parsed);
     // Calculate emissions
-    const emissions = estimateEmissions(parsed);
+    let emissions;
+    try {
+      emissions = estimateEmissions(parsed);
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message.includes("Care instructions must be a structured object")
+      ) {
+        emissions = estimateEmissions(withFallbackCareForEmissions(parsed));
+      } else {
+        throw err;
+      }
+    }
 
     res.json({ parsed, emissions });
   } catch {
@@ -68,20 +111,6 @@ router.post("/tag", upload.single("image"), async (req, res) => {
         message: "Unexpected server error.",
       },
     });
-    // Calculate economic metrics
-    const rawPrice = req.body?.price;
-    if (rawPrice == null || rawPrice === "") {
-      return res.status(400).json({ error: "Missing required field: price" });
-    }
-    const price = Number(rawPrice);
-    if (!Number.isFinite(price) || price <= 0) {
-      return res.status(400).json({ error: "price must be a positive number" });
-    }
-    const economic = estimateEconomics({ price, materials: parsed.materials });
-
-    res.json({ parsed, emissions, economic });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   } finally {
     // Always clean up uploaded file
     if (filePath && fs.existsSync(filePath)) {

@@ -106,6 +106,25 @@ test("POST /api/tag contract test validates required response fields", async (t)
   assertTagResponseContract(res.body);
 });
 
+test("POST /api/tag normalizes malformed care and still returns 200", async (t) => {
+  __setTagExtractorForTest(async () => ({
+    country: "Portugal",
+    materials: [{ fiber: "Cotton", pct: 100 }],
+    care: "machine_wash_cold",
+  }));
+  t.after(() => __resetTagExtractorForTest());
+
+  const res = await request(app).post("/api/tag").attach("image", fixtureImage);
+
+  assert.equal(res.status, 200);
+  assert.ok(res.body.parsed && typeof res.body.parsed === "object");
+  assert.ok(res.body.parsed.care && typeof res.body.parsed.care === "object");
+  assert.equal(res.body.parsed.care.washing, null);
+  assert.equal(res.body.parsed.care.drying, null);
+  assert.equal(res.body.parsed.care.ironing, null);
+  assert.equal(res.body.parsed.care.dry_cleaning, null);
+});
+
 const liveEnabled = process.env.E2E_LIVE === "1" && !!process.env.OPENAI_API_KEY;
 
 if (liveEnabled) {
