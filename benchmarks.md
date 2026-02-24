@@ -101,7 +101,7 @@ Note: All these runs were from COLD starts
 # Mobile On-Device Cache Benchmark Summary
 
 Strategy: Exact match only (SHA-256 hash of image bytes → local SQLite lookup).
-Eviction policy: FIFO, max 200 entries.
+Eviction policy: FIFO, max 100 entries.
 Test dataset: 76 images from `cropped_tags`, 3 repeat passes (228 total lookups).
 Backend: `MOCK_OCR=true CACHE_ENABLED=false` (no server-side cache, measures real network cost).
 Script: `backend/benchmarks/mobile_cache_benchmark.js`
@@ -126,3 +126,4 @@ Pass structure: Pass 1 = all MISS (cold cache), Passes 2–3 = all HIT (warm cac
 | Latency Reduction         | —            | **99.3%**  | —                                               |
 | Eviction Policy           | —            | FIFO       | Oldest inserted entry dropped at 200 entries    |
 | Storage                   | —            | On-device  | Local SQLite, no network required on HIT        |
+
