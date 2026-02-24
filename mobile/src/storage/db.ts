@@ -1,7 +1,7 @@
 import { SQLiteDatabase, openDatabaseSync } from "expo-sqlite";
 
 const DB_NAME = "ecotag.db";
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 let db: SQLiteDatabase | null = null;
 
@@ -34,6 +34,17 @@ export function initDb(): void {
         result_json TEXT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_scans_created_at ON scans(created_at DESC);
+    `);
+  }
+
+  // check the schema version and create the image cache table if it doesn't exist
+  if (currentVersion < 2) {
+    database.execSync(`
+      CREATE TABLE IF NOT EXISTS image_cache (
+        image_hash TEXT PRIMARY KEY NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
     `);
   }
 
