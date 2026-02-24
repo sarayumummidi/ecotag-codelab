@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { addScan } from "../storage/scans";
+import { lookupCache, storeCache } from "../storage/imageCache";
 import { ParsedTag, TagApiResponse } from "../types/api";
 
 export interface NormalizedApiError {
@@ -130,6 +131,19 @@ function normalizeErrorPayload(
 }
 
 export async function tagImage(imageUri: string): Promise<TagApiResponse> {
+  const cached = await lookupCache(imageUri);
+  if (cached) {
+    recordScan({
+      success: 1,
+      co2e_grams: Math.round(cached.emissions.total_kgco2e * 1000),
+      display_name: buildDisplayName(cached.parsed),
+      category: null,
+      error_code: null,
+      result: { parsed: cached.parsed, emissions: cached.emissions },
+    });
+    return cached;
+  }
+
   const formData = new FormData();
   formData.append("image", {
     uri: imageUri,
@@ -201,6 +215,7 @@ export async function tagImage(imageUri: string): Promise<TagApiResponse> {
   }
 
   const response = parsed as TagApiResponse;
+  await storeCache(imageUri, response);
   recordScan({
     success: 1,
     co2e_grams: Math.round(response.emissions.total_kgco2e * 1000),
